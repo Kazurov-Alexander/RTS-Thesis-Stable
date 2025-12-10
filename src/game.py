@@ -55,12 +55,18 @@ def main():
     player = Player(x=0, y=0)
 
     # --- создаём препятствия ---
-    trees = generate_trees(num_trees=30, box_map=box_map)
-    bushes = generate_bushes(num_bushes=25, box_map=box_map)
-    lakes = generate_blob(num_blobs=3, min_size=20, max_size=80, box_map=box_map, kind="lake")
-    mountains = generate_blob(num_blobs=4, min_size=30, max_size=120, box_map=box_map, kind="mountain")
+    lakes = generate_blob(num_blobs=3, min_size=30, max_size=100, box_map=box_map, kind="lake")
+    mountains = generate_blob(num_blobs=9, min_size=60, max_size=140, box_map=box_map, kind="mountain")
 
-    obstacles = trees + bushes + lakes + mountains
+    # объединяем озёра и горы
+    obstacles = lakes + mountains
+
+    # генерируем деревья и кусты с учётом препятствий
+    trees = generate_trees(num_trees=100, box_map=box_map, obstacles=obstacles, min_distance=2)
+    obstacles += trees
+
+    bushes = generate_bushes(num_bushes=50, box_map=box_map, obstacles=obstacles, min_distance=2)
+    obstacles += bushes
 
     # --- создаём список врагов через функцию спауна ---
     enemies = spawn_enemies(num_enemies=10, box_map=box_map, player=player, min_distance=10, obstacles=obstacles)
@@ -143,7 +149,7 @@ def main():
             for obs in obstacles:
                 obs.draw(screen, tile_size, offset_x, offset_y)
 
-            # --- Игрок (синий спрайт) ---
+            # --- Игрок ---
             player_img = pg.transform.scale(player.get_image(), (tile_size, tile_size))
             player_img = tint_image(player_img, (50, 50, 255))  # синий
             screen.blit(player_img, (int(px + offset_x), int(py + offset_y)))
@@ -154,7 +160,7 @@ def main():
             # --- Логика врагов ---
             for enemy in enemies:
                 if not is_blocked(enemy.x, enemy.y, obstacles):
-                    enemy.update(player.x, player.y, box_map, obstacles)  # передаём obstacles
+                    enemy.update(player.x, player.y, box_map, obstacles)
                 enemy_img = pg.transform.scale(enemy.get_image(), (tile_size, tile_size))
                 enemy_img = tint_image(enemy_img, (255, 50, 50))  # красный
                 screen.blit(enemy_img, (int(enemy.x * tile_size + offset_x),

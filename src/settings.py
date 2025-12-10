@@ -28,7 +28,7 @@ def get_last_commit_date():
         return datetime.datetime.now().strftime("%Y-%d-%m")
 
 # Версия игры с датой последнего коммита
-GAME_VERSION = "v1.0.1 (" + get_last_commit_date() + ")"
+GAME_VERSION = "v1.0.2 (" + get_last_commit_date() + ")"
 
 # --- Опции меню ---
 MENU_OPTIONS = [

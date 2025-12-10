@@ -2,100 +2,173 @@ import random
 import pygame as pg
 
 class Obstacle:
-    # пути к текстурам
     TILE_PATHS = {
-        "mountain": "assets/images/tiles/stone.png",
-        "lake": "assets/images/tiles/water.png",
         "tree-1": "assets/images/tiles/tree-1.png",
         "tree-2": "assets/images/tiles/tree-2.png",
         "bush": "assets/images/tiles/bush.png"
     }
 
-    # кэш для загруженных картинок
     TILE_IMAGES = {}
 
     def __init__(self, x, y, kind, shade_factor=1.0):
         self.x = x
         self.y = y
         self.kind = kind
+        self.shade_factor = shade_factor
 
-        # загружаем текстуру
         if kind in Obstacle.TILE_PATHS:
             if kind not in Obstacle.TILE_IMAGES:
                 img = pg.image.load(Obstacle.TILE_PATHS[kind]).convert_alpha()
                 Obstacle.TILE_IMAGES[kind] = img
-            base_img = Obstacle.TILE_IMAGES[kind]
-
-            # для гор и озёр применяем затемнение
-            if kind in ("mountain", "lake"):
-                self.image = self.apply_shade(base_img, shade_factor)
-            else:
-                self.image = base_img
+            self.base_img = Obstacle.TILE_IMAGES[kind]
         else:
-            # fallback — просто цветной квадрат
-            self.image = None
+            self.base_img = None
             self.color = (200, 0, 200)
-
-    def apply_shade(self, image, factor):
-        """Затемняет картинку: factor от 0.6 (тёмная) до 1.0 (без изменений)"""
-        shaded = image.copy()
-        shade_color = (int(255 * factor), int(255 * factor), int(255 * factor))
-        shaded.fill(shade_color, special_flags=pg.BLEND_RGBA_MULT)
-        return shaded
 
     def draw(self, screen, tile_size, offset_x, offset_y):
         px = self.x * tile_size + offset_x
         py = self.y * tile_size + offset_y
 
-        if self.image:
+        if self.base_img:
             if self.kind in ("tree-1", "tree-2"):
-                # дерево занимает два тайла по высоте
-                scaled = pg.transform.scale(self.image, (tile_size, tile_size * 2))
-                # смещаем вверх на один тайл, чтобы нижняя часть совпадала с клеткой
+                scaled = pg.transform.scale(self.base_img, (tile_size, tile_size * 2))
                 screen.blit(scaled, (int(px), int(py - tile_size)))
             else:
-                # обычные препятствия (кусты, горы, озёра)
-                scaled = pg.transform.scale(self.image, (tile_size, tile_size))
+                scaled = pg.transform.scale(self.base_img, (tile_size, tile_size))
                 screen.blit(scaled, (int(px), int(py)))
         else:
             rect = pg.Rect(int(px), int(py), tile_size, tile_size)
             pg.draw.rect(screen, self.color, rect)
 
 
+# ---------- Группа гор ----------
+
+class MountainGroup:
+    GROUP_IMAGE = None
+
+    def __init__(self, cells):
+        self.cells = cells
+        xs = [x for x, y in cells]
+        ys = [y for x, y in cells]
+        self.min_x, self.max_x = min(xs), max(xs)
+        self.min_y, self.max_y = min(ys), max(ys)
+
+        if MountainGroup.GROUP_IMAGE is None:
+            MountainGroup.GROUP_IMAGE = pg.image.load("assets/images/tiles/mountains.png").convert_alpha()
+
+        self.original_image = MountainGroup.GROUP_IMAGE
+
+    def draw(self, screen, tile_size, offset_x, offset_y):
+        w = (self.max_x - self.min_x + 1) * tile_size
+        h = (self.max_y - self.min_y + 1) * tile_size
+
+        stretched = pg.transform.scale(self.original_image, (w, h))
+
+        mask = pg.Surface((w, h), pg.SRCALPHA)
+        for (cx, cy) in self.cells:
+            rx = (cx - self.min_x) * tile_size
+            ry = (cy - self.min_y) * tile_size
+            rect = pg.Rect(rx, ry, tile_size, tile_size)
+            mask.fill((255, 255, 255, 255), rect)
+
+        stretched.blit(mask, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
+
+        px = self.min_x * tile_size + offset_x
+        py = self.min_y * tile_size + offset_y
+        screen.blit(stretched, (px, py))
+
+
+# ---------- Группа воды ----------
+
+class WaterGroup:
+    GROUP_IMAGE = None
+
+    def __init__(self, cells):
+        self.cells = cells
+        xs = [x for x, y in cells]
+        ys = [y for x, y in cells]
+        self.min_x, self.max_x = min(xs), max(xs)
+        self.min_y, self.max_y = min(ys), max(ys)
+
+        if WaterGroup.GROUP_IMAGE is None:
+            WaterGroup.GROUP_IMAGE = pg.image.load("assets/images/tiles/see.png").convert_alpha()
+
+        self.original_image = WaterGroup.GROUP_IMAGE
+
+    def draw(self, screen, tile_size, offset_x, offset_y):
+        w = (self.max_x - self.min_x + 1) * tile_size
+        h = (self.max_y - self.min_y + 1) * tile_size
+
+        stretched = pg.transform.scale(self.original_image, (w, h))
+
+        mask = pg.Surface((w, h), pg.SRCALPHA)
+        for (cx, cy) in self.cells:
+            rx = (cx - self.min_x) * tile_size
+            ry = (cy - self.min_y) * tile_size
+            rect = pg.Rect(rx, ry, tile_size, tile_size)
+            mask.fill((255, 255, 255, 255), rect)
+
+        stretched.blit(mask, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
+
+        px = self.min_x * tile_size + offset_x
+        py = self.min_y * tile_size + offset_y
+        screen.blit(stretched, (px, py))
+
+
 # ---------- Генераторы ----------
 
-def generate_trees(num_trees, box_map, min_distance=2):
+def generate_trees(num_trees, box_map, obstacles, min_distance=2):
     trees = []
     for _ in range(num_trees):
+        attempts = 0
         while True:
+            attempts += 1
+            if attempts > 200:
+                break
+
             x = random.randint(-box_map.radius, box_map.radius)
             y = random.randint(-box_map.radius, box_map.radius)
+
             if box_map.is_inside(x, y):
                 too_close = any(abs(x - t.x) < min_distance and abs(y - t.y) < min_distance for t in trees)
-                if not too_close:
-                    # случайно выбираем модель дерева
+                occupied = any(
+                    (hasattr(o, "x") and o.x == x and o.y == y) or
+                    (hasattr(o, "cells") and (x, y) in o.cells)
+                    for o in obstacles
+                )
+                if not too_close and not occupied:
                     kind = random.choice(["tree-1", "tree-2"])
                     trees.append(Obstacle(x, y, kind))
                     break
     return trees
 
 
-def generate_bushes(num_bushes, box_map, min_distance=2):
+def generate_bushes(num_bushes, box_map, obstacles, min_distance=2):
     bushes = []
     for _ in range(num_bushes):
+        attempts = 0
         while True:
+            attempts += 1
+            if attempts > 200:
+                break
+
             x = random.randint(-box_map.radius, box_map.radius)
             y = random.randint(-box_map.radius, box_map.radius)
+
             if box_map.is_inside(x, y):
                 too_close = any(abs(x - b.x) < min_distance and abs(y - b.y) < min_distance for b in bushes)
-                if not too_close:
+                occupied = any(
+                    (hasattr(o, "x") and o.x == x and o.y == y) or
+                    (hasattr(o, "cells") and (x, y) in o.cells)
+                    for o in obstacles
+                )
+                if not too_close and not occupied:
                     bushes.append(Obstacle(x, y, "bush"))
                     break
     return bushes
 
 
-def generate_blob(num_blobs, min_size, max_size, box_map, kind):
-    """Генерация случайных сцепленных пятен (озёра, горы) с эффектом глубины"""
+def generate_blob(num_blobs, min_size, max_size, box_map, kind, tile_size=40):
     obstacles = []
 
     for _ in range(num_blobs):
@@ -104,22 +177,20 @@ def generate_blob(num_blobs, min_size, max_size, box_map, kind):
         target_size = random.randint(min_size, max_size)
 
         blob_cells = {(cx, cy)}
-
         while len(blob_cells) < target_size:
             bx, by = random.choice(list(blob_cells))
-            dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1)])
+            dx, dy = random.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
             nx, ny = bx + dx, by + dy
             if box_map.is_inside(nx, ny):
                 blob_cells.add((nx, ny))
 
-        # вычисляем максимальное расстояние от центра
-        max_dist = max(((x - cx)**2 + (y - cy)**2)**0.5 for (x,y) in blob_cells)
-
-        for (x, y) in blob_cells:
-            dist = ((x - cx)**2 + (y - cy)**2)**0.5
-            factor = 0.6 + 0.4 * (dist / max_dist)  # центр темнее, край светлее
-
-            obstacles.append(Obstacle(x, y, kind, shade_factor=factor))
+        if kind == "mountain":
+            obstacles.append(MountainGroup(blob_cells))
+        elif kind == "lake":
+            obstacles.append(WaterGroup(blob_cells))
+        else:
+            for (x, y) in blob_cells:
+                obstacles.append(Obstacle(x, y, kind))
 
     return obstacles
 
@@ -127,10 +198,11 @@ def generate_blob(num_blobs, min_size, max_size, box_map, kind):
 # ---------- Проверки ----------
 
 def is_blocked(x, y, obstacles):
-    """Проверка: занята ли клетка препятствием"""
-    return any(o.x == x and o.y == y for o in obstacles)
-
+    return any(
+        (hasattr(o, "x") and o.x == x and o.y == y) or
+        (hasattr(o, "cells") and (x, y) in o.cells)
+        for o in obstacles
+    )
 
 def is_area_free(x, y, obstacles):
-    """Проверка: клетка свободна от препятствий"""
     return not is_blocked(x, y, obstacles)
