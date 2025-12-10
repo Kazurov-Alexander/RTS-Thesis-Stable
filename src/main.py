@@ -118,14 +118,6 @@ def main(display_mode=pg.FULLSCREEN):
                             )
                             settings.CURRENT_MODE = "Полноэкранный"
 
-                        elif option == "Полноэкранный без рамки" and settings_submode == "display_mode":
-                            display_mode = pg.FULLSCREEN | pg.NOFRAME
-                            screen = pg.display.set_mode(
-                                (settings.CURRENT_WIDTH, settings.CURRENT_HEIGHT),
-                                display_mode
-                            )
-                            settings.CURRENT_MODE = "Полноэкранный без рамки"
-
             elif event.type == pg.MOUSEBUTTONUP and event.button == 1:
                 dragging = False
 

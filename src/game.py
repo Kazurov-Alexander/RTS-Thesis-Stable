@@ -1,33 +1,11 @@
 import sys
-import random
 import pygame as pg
-import settings
-from map.map import BoxMap
-from map.renderer import draw_map, box_to_pixel
-from player import Player
-from enemy import Enemy
-from src.map.obstacles import generate_trees, generate_bushes, generate_blob, is_blocked
-
-# ---------- Враги ----------
-def spawn_enemies(num_enemies, box_map, player, min_distance=10, obstacles=None):
-    enemies = []
-    for _ in range(num_enemies):
-        attempts = 0
-        while True:
-            attempts += 1
-            if attempts > 200:  # защита от бесконечного цикла
-                break
-
-            x = random.randint(-box_map.radius, box_map.radius)
-            y = random.randint(-box_map.radius, box_map.radius)
-
-            if box_map.is_inside(x, y):
-                dist = ((x - player.x)**2 + (y - player.y)**2) ** 0.5
-                # проверяем: враг не ближе min_distance и клетка не занята препятствием
-                if dist >= min_distance and not is_blocked(x, y, obstacles):
-                    enemies.append(Enemy(x, y))
-                    break
-    return enemies
+from src import settings
+from src.map.map import BoxMap
+from src.map.renderer import draw_map, box_to_pixel
+from src.entities.player import Player
+from src.map.obstacles import is_blocked
+from src.systems.spawner import spawn_obstacles, spawn_enemies, spawn_weapons
 
 # ---------- Вспомогательная функция перекраски ----------
 def tint_image(image, color):
@@ -54,22 +32,10 @@ def main():
     box_map = BoxMap(radius=50)
     player = Player(x=0, y=0)
 
-    # --- создаём препятствия ---
-    lakes = generate_blob(num_blobs=3, min_size=30, max_size=100, box_map=box_map, kind="lake")
-    mountains = generate_blob(num_blobs=9, min_size=60, max_size=140, box_map=box_map, kind="mountain")
-
-    # объединяем озёра и горы
-    obstacles = lakes + mountains
-
-    # генерируем деревья и кусты с учётом препятствий
-    trees = generate_trees(num_trees=100, box_map=box_map, obstacles=obstacles, min_distance=2)
-    obstacles += trees
-
-    bushes = generate_bushes(num_bushes=50, box_map=box_map, obstacles=obstacles, min_distance=2)
-    obstacles += bushes
-
-    # --- создаём список врагов через функцию спауна ---
+    # --- генерация объектов ---
+    obstacles = spawn_obstacles(box_map)
     enemies = spawn_enemies(num_enemies=10, box_map=box_map, player=player, min_distance=10, obstacles=obstacles)
+    weapons = spawn_weapons(box_map, obstacles)
 
     tile_size = 40
     running = True
@@ -136,18 +102,28 @@ def main():
                 if not is_blocked(new_x, new_y, obstacles):
                     player.move("RIGHT", box_map)
 
+            # --- Проверка подбора оружия ---
+            for weapon in weapons:
+                if not weapon.picked and weapon.x == player.x and weapon.y == player.y:
+                    weapon.picked = True
+                    player.weapon = weapon
+
             # --- Камера ---
             px, py = box_to_pixel(player.x, player.y, tile_size)
             offset_x = screen.get_width() // 2 - px - tile_size // 4
             offset_y = screen.get_height() // 2 - py - tile_size // 4
 
-            # --- Отрисовка карты (тайлы травы) ---
+            # --- Отрисовка карты ---
             screen.fill(settings.BACKGROUND_COLOR)
             draw_map(screen, box_map, size=tile_size, offset_x=offset_x, offset_y=offset_y)
 
             # --- Отрисовка препятствий ---
             for obs in obstacles:
                 obs.draw(screen, tile_size, offset_x, offset_y)
+
+            # --- Отрисовка оружия ---
+            for weapon in weapons:
+                weapon.draw(screen, tile_size, offset_x, offset_y)
 
             # --- Игрок ---
             player_img = pg.transform.scale(player.get_image(), (tile_size, tile_size))
