@@ -17,7 +17,7 @@ def render_button(screen, text, center_x, center_y, mouse_pos):
     return text, text_rect
 
 def draw_volume_slider(screen, mouse_pos, current_volume):
-    # Параметры слайдера
+    # Параметры слайдера (в виртуальных координатах)
     slider_x = settings.CURRENT_WIDTH // 2 - 150
     slider_y = 250
     slider_width = 300
@@ -45,7 +45,14 @@ def draw_menu(screen, mode="main", submode=None, current_volume=None):
         screen.fill(settings.BACKGROUND_COLOR)
 
     font_title = pg.font.Font(settings.FONT_PATH, settings.FONT_SIZE_TITLE)
-    mouse_pos = pg.mouse.get_pos()
+
+    # --- масштабируем мышь в виртуальные координаты ---
+    screen_w, screen_h = pg.display.get_surface().get_size()
+    scale_x = settings.CURRENT_WIDTH / screen_w
+    scale_y = settings.CURRENT_HEIGHT / screen_h
+    mouse_pos = (int(pg.mouse.get_pos()[0] * scale_x),
+                 int(pg.mouse.get_pos()[1] * scale_y))
+
     option_rects = []
 
     if mode == "main":
@@ -86,7 +93,6 @@ def draw_menu(screen, mode="main", submode=None, current_volume=None):
                     option_rects.append(item)
 
             elif submode == "volume":
-                # если current_volume не передан, используем settings.CURRENT_VOLUME
                 if current_volume is None:
                     current_volume = settings.CURRENT_VOLUME
                 knob_rect, track_rect = draw_volume_slider(screen, mouse_pos, current_volume)
@@ -98,7 +104,7 @@ def draw_menu(screen, mode="main", submode=None, current_volume=None):
         option_rects.append(item)
 
     # --- Версия игры справа снизу ---
-    font_version = pg.font.Font(settings.FONT_PATH, 20)  # маленький шрифт
+    font_version = pg.font.Font(settings.FONT_PATH, 20)
     version_surface = font_version.render(settings.GAME_VERSION, True, (200, 200, 200))
     version_rect = version_surface.get_rect(bottomright=(settings.CURRENT_WIDTH - 10, settings.CURRENT_HEIGHT - 10))
     screen.blit(version_surface, version_rect)
