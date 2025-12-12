@@ -41,11 +41,24 @@ class Weapon:
                 pg.draw.rect(fallback, (200, 200, 0), fallback.get_rect())
                 _WEAPON_IMAGES_CACHE[kind] = fallback
                 return fallback
+
         # fallback если тип неизвестен
         unknown = pg.Surface((40, 40), pg.SRCALPHA)
         pg.draw.rect(unknown, (180, 180, 180), unknown.get_rect())
         _WEAPON_IMAGES_CACHE[kind] = unknown
         return unknown
+
+    def get_scaled_image(self, tile_size: int, equipped: bool = False) -> pg.Surface:
+        """
+        Возвращает картинку оружия в нужном масштабе.
+        - equipped=True → уменьшенный размер (в 3 раза меньше)
+        - equipped=False → обычный размер (как на карте)
+        """
+        if equipped:
+            size = (tile_size // 3, tile_size // 3)
+        else:
+            size = (tile_size, tile_size)
+        return pg.transform.scale(self.image, size)
 
     def draw(self, screen: pg.Surface, tile_size: int, offset_x: int, offset_y: int):
         """Отрисовка оружия на карте, если оно не подобрано"""
@@ -53,15 +66,14 @@ class Weapon:
             return
         px = self.x * tile_size + offset_x
         py = self.y * tile_size + offset_y
-        scaled = pg.transform.scale(self.image, (tile_size, tile_size))
-        screen.blit(scaled, (int(px), int(py)))
+        screen.blit(self.get_scaled_image(tile_size, equipped=False), (int(px), int(py)))
 
 
 def _is_occupied(x: int, y: int, obstacles) -> bool:
     """
     Проверяет, занята ли клетка любым препятствием/объектом.
     Поддерживает:
-    - объекты с полями x,y (точечные)
+    - объекты с полями x, y (точечные)
     - объекты с набором cells (многоклеточные регионы)
     """
     for o in obstacles:

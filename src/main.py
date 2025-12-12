@@ -3,13 +3,12 @@ import pygame.mixer as pgm
 import settings
 from menu import draw_menu
 
-def main(display_mode=pg.FULLSCREEN):
+def main():
     pg.init()
     pgm.init()
 
-    # создаём реальный экран
-    screen = pg.display.set_mode((settings.CURRENT_WIDTH, settings.CURRENT_HEIGHT), display_mode)
-    pg.display.set_caption("RTS Thesis Project")
+    # --- получаем экран через синглтон ---
+    screen = settings.ScreenManager().get_screen()
 
     hover_sound = pgm.Sound("assets/sounds/ui/hover.wav")
 
@@ -22,7 +21,7 @@ def main(display_mode=pg.FULLSCREEN):
     running = True
     last_hovered = None
     mode = "main"
-    settings_submode = None
+    settings_submenu = None
     dragging = False
 
     # виртуальный экран для интерфейса
@@ -31,7 +30,7 @@ def main(display_mode=pg.FULLSCREEN):
     while running:
         virtual_screen.fill(settings.BACKGROUND_COLOR)
 
-        option_rects = draw_menu(virtual_screen, mode, settings_submode, settings.CURRENT_VOLUME)
+        option_rects = draw_menu(virtual_screen, mode, settings_submenu, settings.CURRENT_VOLUME)
 
         hovered_now = None
 
@@ -57,7 +56,7 @@ def main(display_mode=pg.FULLSCREEN):
 
                         elif option == "Настройки":
                             mode = "settings"
-                            settings_submode = None
+                            settings_submenu = None
 
                         elif option == "Новая игра":
                             # переключаем музыку
@@ -78,22 +77,22 @@ def main(display_mode=pg.FULLSCREEN):
 
                         elif option == "Назад":
                             mode = "main"
-                            settings_submode = None
+                            settings_submenu = None
                             dragging = False
 
                         elif option == "Разрешение экрана":
-                            settings_submode = "resolution"
+                            settings_submenu = "resolution"
 
                         elif option == "Режим окна":
-                            settings_submode = "display_mode"
+                            settings_submenu = "display_mode"
 
                         elif option == "Громкость":
-                            settings_submode = "volume"
+                            settings_submenu = "volume"
 
                         elif option == "volume_slider":
                             dragging = True  # начинаем перетаскивание
 
-                        elif "x" in option and settings_submode == "resolution":
+                        elif "x" in option and settings_submenu == "resolution":
                             try:
                                 w, h = map(int, option.split("x"))
                                 settings.CURRENT_WIDTH = w
@@ -102,27 +101,16 @@ def main(display_mode=pg.FULLSCREEN):
                             except:
                                 pass
 
-                        elif option == "Оконный режим" and settings_submode == "display_mode":
-                            display_mode = 0
-                            screen = pg.display.set_mode(
-                                (settings.CURRENT_WIDTH - 20, settings.CURRENT_HEIGHT - 80),
-                                display_mode
-                            )
-                            settings.CURRENT_MODE = "Оконный режим"
-
-                        elif option == "Полноэкранный" and settings_submode == "display_mode":
-                            display_mode = pg.FULLSCREEN
-                            screen = pg.display.set_mode(
-                                (settings.CURRENT_WIDTH, settings.CURRENT_HEIGHT),
-                                display_mode
-                            )
-                            settings.CURRENT_MODE = "Полноэкранный"
+                        elif option in settings.DISPLAY_MODES and settings_submenu == "display_mode":
+                            settings.CURRENT_MODE = option
+                            # пересоздаём экран через Singleton
+                            screen = settings.ScreenManager().reset_screen()
 
             elif event.type == pg.MOUSEBUTTONUP and event.button == 1:
                 dragging = False
 
         # Перетаскивание ползунка
-        if dragging and settings_submode == "volume":
+        if dragging and settings_submenu == "volume":
             track_rect = None
             for option, rect in option_rects:
                 if option == "volume_track" and isinstance(rect, pg.Rect):

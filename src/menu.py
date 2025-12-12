@@ -36,7 +36,7 @@ def draw_volume_slider(screen, mouse_pos, current_volume):
 
     return knob_rect, track_rect
 
-def draw_menu(screen, mode="main", submode=None, current_volume=None):
+def draw_menu(screen, mode="main", submenu=None, current_volume=None):
     try:
         background = pg.image.load("assets/images/ui/background_menu.png")
         background = pg.transform.scale(background, (settings.CURRENT_WIDTH, settings.CURRENT_HEIGHT))
@@ -69,30 +69,30 @@ def draw_menu(screen, mode="main", submode=None, current_volume=None):
         title_rect = title_surface.get_rect(center=(settings.CURRENT_WIDTH // 2, 60))
         screen.blit(title_surface, title_rect)
 
-        if submode is None:
+        if submenu is None:
             for i, tab in enumerate(settings.DISPLAY_SETTINGS_MENU):
                 item = render_button(screen, tab, settings.CURRENT_WIDTH // 2, 140 + i * 50, mouse_pos)
                 option_rects.append(item)
         else:
-            selected_tab_text = get_tab_text(submode)
+            selected_tab_text = get_tab_text(submenu)
             if selected_tab_text:
                 font_tab = pg.font.Font(settings.FONT_PATH, settings.FONT_SIZE_OPTION)
                 tab_surface = font_tab.render(selected_tab_text, True, (255, 255, 255))
                 tab_rect = tab_surface.get_rect(center=(settings.CURRENT_WIDTH // 2, 120))
                 screen.blit(tab_surface, tab_rect)
 
-            if submode == "resolution":
+            if submenu == "resolution":
                 for i, (w, h) in enumerate(settings.RESOLUTIONS):
                     text = f"{w} x {h}"
                     item = render_button(screen, text, settings.CURRENT_WIDTH // 2, 220 + i * 30, mouse_pos)
                     option_rects.append(item)
 
-            elif submode == "display_mode":
+            elif submenu == "display_mode":
                 for i, mode_name in enumerate(settings.DISPLAY_MODES):
                     item = render_button(screen, mode_name, settings.CURRENT_WIDTH // 2, 220 + i * 40, mouse_pos)
                     option_rects.append(item)
 
-            elif submode == "volume":
+            elif submenu == "volume":
                 if current_volume is None:
                     current_volume = settings.CURRENT_VOLUME
                 knob_rect, track_rect = draw_volume_slider(screen, mouse_pos, current_volume)
@@ -111,11 +111,11 @@ def draw_menu(screen, mode="main", submode=None, current_volume=None):
 
     return option_rects
 
-def get_tab_text(submode):
-    if submode == "resolution":
-        return "Разрешение экрана"
-    elif submode == "display_mode":
-        return "Режим окна"
-    elif submode == "volume":
-        return "Громкость"
-    return None
+def get_tab_text(submenu):
+    mapping = {
+        "resolution": settings.DISPLAY_SETTINGS_MENU[0],
+        "display_mode": settings.DISPLAY_SETTINGS_MENU[1],
+        "volume": settings.DISPLAY_SETTINGS_MENU[2],
+    }
+    return mapping.get(submenu)
+

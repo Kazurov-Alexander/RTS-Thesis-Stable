@@ -1,9 +1,11 @@
 import subprocess
+import datetime
+import pygame as pg
 
 # --- Текущие настройки (меняются в игре и меню) ---
 CURRENT_WIDTH = 1920
 CURRENT_HEIGHT = 1080
-CURRENT_MODE = "Оконный режим"   # или "Полноэкранный", "Полноэкранный без рамки"
+CURRENT_MODE = "Полноэкранный"   # или "Оконный режим"
 CURRENT_VOLUME = 1.0
 
 # --- Константы ---
@@ -24,11 +26,11 @@ def get_last_commit_date():
         return date_str
     except Exception:
         # fallback: если git недоступен
-        import datetime
-        return datetime.datetime.now().strftime("%Y-%d-%m")
+        return datetime.datetime.now().strftime("%Y-%m-%d")
 
 # Версия игры с датой последнего коммита
-GAME_VERSION = "v1.0.3 (" + get_last_commit_date() + ")"
+VERSION_NUMBER = "v1.0.4"
+GAME_VERSION = f"{VERSION_NUMBER} ({get_last_commit_date()})"
 
 # --- Опции меню ---
 MENU_OPTIONS = [
@@ -38,11 +40,19 @@ MENU_OPTIONS = [
     "Выход"
 ]
 
+# --- Режимы отображения ---
 DISPLAY_MODES = [
-    "Оконный режим",
-    "Полноэкранный",
+    "Полноэкранный",   # индекс 0
+    "Оконный режим",   # индекс 1
 ]
 
+# --- Отступы для каждого режима (связаны по индексу с DISPLAY_MODES) ---
+WINDOW_MARGINS = [
+    (0, 0),    # для полноэкранного режима
+    (20, 80),  # для оконного режима (границы окна)
+]
+
+# --- Настройки меню ---
 DISPLAY_SETTINGS_MENU = [
     "Разрешение экрана",
     "Режим окна",
@@ -57,3 +67,36 @@ RESOLUTIONS = [
     (1600, 900),
     (1920, 1080),
 ]
+
+# --- Singleton для экрана ---
+class ScreenManager:
+    _instance = None
+    _screen = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(ScreenManager, cls).__new__(cls)
+        return cls._instance
+
+    def get_screen(self):
+        if self._screen is None:
+            self._screen = self._create_screen()
+        return self._screen
+
+    def reset_screen(self):
+        # пересоздаём экран при смене режима
+        self._screen = self._create_screen()
+        return self._screen
+
+    @staticmethod
+    def _create_screen():
+        mode_index = DISPLAY_MODES.index(CURRENT_MODE)
+        margin_x, margin_y = WINDOW_MARGINS[mode_index]
+        flags = pg.FULLSCREEN if mode_index == 0 else 0
+
+        width = CURRENT_WIDTH - margin_x
+        height = CURRENT_HEIGHT - margin_y
+        screen = pg.display.set_mode((width, height), flags)
+        pg.display.set_caption(f"RTS Thesis Project {GAME_VERSION}")
+        return screen
+

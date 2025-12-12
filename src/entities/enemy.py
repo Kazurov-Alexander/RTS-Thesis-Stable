@@ -4,9 +4,9 @@ import math
 from src.map.obstacles import is_blocked  # проверка препятствий
 
 class Enemy:
-    def __init__(self, x, y, hp=100, speed=1, aggro_range=10):
-        self.x = x
-        self.y = y
+    def __init__(self, x, y, hp=100, speed=0.1, aggro_range=15):
+        self.x = float(x)
+        self.y = float(y)
         self.hp = hp
         self.speed = speed
         self.aggro_range = aggro_range
@@ -66,29 +66,38 @@ class Enemy:
     def move_towards(self, target_x, target_y, box_map, obstacles=None):
         dx = target_x - self.x
         dy = target_y - self.y
+        dist = math.sqrt(dx**2 + dy**2)
 
+        if dist == 0:
+            return
+
+        # нормализованный вектор движения
+        step_x = (dx / dist) * self.speed
+        step_y = (dy / dist) * self.speed
+
+        new_x = self.x + step_x
+        new_y = self.y + step_y
+
+        # направление для анимации
         if abs(dx) > abs(dy):
-            step_x = self.speed if dx > 0 else -self.speed
-            new_x = self.x + step_x
-            new_y = self.y
             self.direction = "RIGHT" if dx > 0 else "LEFT"
         else:
-            step_y = self.speed if dy > 0 else -self.speed
-            new_x = self.x
-            new_y = self.y + step_y
             self.direction = "DOWN" if dy > 0 else "UP"
 
-        # проверяем границы и препятствия
-        if box_map.is_inside(new_x, new_y) and (obstacles is None or not is_blocked(new_x, new_y, obstacles)):
+        # проверяем границы и препятствия (по ближайшей клетке)
+        cell_x, cell_y = int(round(new_x)), int(round(new_y))
+        if box_map.is_inside(new_x, new_y) and (obstacles is None or not is_blocked(cell_x, cell_y, obstacles)):
             self.x = new_x
             self.y = new_y
 
     def wander(self, box_map, obstacles=None):
-        if random.random() < 0.05:  # вероятность шага
+        if random.random() < 0.02:  # вероятность шага
             dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1)])
-            new_x = self.x + dx
-            new_y = self.y + dy
-            if box_map.is_inside(new_x, new_y) and (obstacles is None or not is_blocked(new_x, new_y, obstacles)):
+            new_x = self.x + dx * self.speed * 10  # чуть длиннее шаг
+            new_y = self.y + dy * self.speed * 10
+
+            cell_x, cell_y = int(round(new_x)), int(round(new_y))
+            if box_map.is_inside(new_x, new_y) and (obstacles is None or not is_blocked(cell_x, cell_y, obstacles)):
                 self.x = new_x
                 self.y = new_y
                 if dx == 1: self.direction = "RIGHT"
@@ -101,7 +110,6 @@ class Enemy:
         return self.frames[self.direction][0]
 
     def draw(self, screen, tile_size, offset_x, offset_y):
-        # В game.py мы перекрашиваем врагов в красный, поэтому здесь просто возвращаем спрайт
         enemy_img = pg.transform.scale(self.get_image(), (tile_size, tile_size))
         screen.blit(enemy_img, (int(self.x * tile_size + offset_x),
                                 int(self.y * tile_size + offset_y)))

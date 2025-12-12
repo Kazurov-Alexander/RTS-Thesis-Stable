@@ -1,12 +1,16 @@
 import pygame as pg
+import math
+from src.map.obstacles import is_blocked  # проверка препятствий
 
 class Player:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
+    def __init__(self, x, y, speed=0.50):
+        self.x = float(x)
+        self.y = float(y)
         self.health = 100
         self.max_health = 100
         self.direction = "DOWN"   # направление по умолчанию
+        self.speed = speed
+        self.weapon = None  # ссылка на объект Weapon
 
         # Загружаем спрайт-лист
         self.sheet = pg.image.load(
@@ -30,7 +34,6 @@ class Player:
                 rect = pg.Rect(col * frame_width, row * frame_height, frame_width, frame_height)
                 frame = self.sheet.subsurface(rect)
 
-                # ⚠️ Подстройка под твой спрайт-лист:
                 if row == 0:
                     frames["UP"].append(frame)
                 elif row == 1:
@@ -39,31 +42,78 @@ class Player:
                     frames["DOWN"].append(frame)
                 elif row == 3:
                     frames["RIGHT"].append(frame)
-                # Если нужен idle — можно взять первый кадр из любого ряда
-        # Добавим idle как первый кадр "DOWN"
-        frames["IDLE"].append(frames["DOWN"][0])
 
+        frames["IDLE"].append(frames["DOWN"][0])
         return frames
 
-    def move(self, direction, boxmap):
-        """Перемещение игрока и смена направления"""
+    def move(self, direction, boxmap, obstacles=None, is_blocked_fn=is_blocked):
+        """Плавное перемещение игрока с учётом препятствий"""
         directions = {
-            "UP": (0, -1),   # W — вверх
-            "DOWN": (0, +1), # S — вниз
-            "LEFT": (-1, 0), # A — влево
-            "RIGHT": (+1, 0) # D — вправо
+            "UP": (0, -1),
+            "DOWN": (0, +1),
+            "LEFT": (-1, 0),
+            "RIGHT": (+1, 0)
         }
 
         dx, dy = directions[direction]
-        new_x = self.x + dx
-        new_y = self.y + dy
+        dist = math.sqrt(dx ** 2 + dy ** 2)
+        if dist == 0:
+            return
 
-        if boxmap.is_inside(new_x, new_y):
+        step_x = (dx / dist) * self.speed
+        step_y = (dy / dist) * self.speed
+
+        new_x = self.x + step_x
+        new_y = self.y + step_y
+
+        cell_x = int(round(new_x))
+        cell_y = int(round(new_y))
+
+        if boxmap.is_inside(cell_x, cell_y) and (obstacles is None or not is_blocked_fn(cell_x, cell_y, obstacles)):
             self.x = new_x
             self.y = new_y
-            self.direction = direction  # обновляем направление
+            self.direction = direction
 
     def get_image(self):
         """Возвращает текущий кадр спрайта"""
-        # пока берём первый кадр для каждого направления
         return self.frames[self.direction][0]
+
+    def draw(self, screen, tile_size, offset_x, offset_y):
+        """Отрисовка игрока и экипированного оружия"""
+        px = int(self.x * tile_size + offset_x)
+        py = int(self.y * tile_size + offset_y)
+
+        # сам игрок
+        player_img = pg.transform.scale(self.get_image(), (tile_size, tile_size))
+        screen.blit(player_img, (px, py))
+
+        # поверх игрока — уменьшенное оружие
+        if self.weapon:
+            weapon_img = self.weapon.get_scaled_image(tile_size, equipped=True)
+
+            # значения по умолчанию (чтобы IDE не ругалась)
+            offset_weapon_x, offset_weapon_y = px, py
+
+        # поверх игрока — уменьшенное оружие
+        if self.weapon:
+            weapon_img = self.weapon.get_scaled_image(tile_size, equipped=True)
+
+            if self.direction == "LEFT":
+                # отразим по горизонтали и сместим вниз
+                weapon_img = pg.transform.flip(weapon_img, True, False)
+                offset_weapon_x = px - tile_size // -3
+                offset_weapon_y = py + tile_size // 2
+
+            elif self.direction == "RIGHT":
+                offset_weapon_x = px + tile_size // 3
+                offset_weapon_y = py + tile_size // 2
+
+            elif self.direction == "DOWN":
+                offset_weapon_x = px + tile_size // 4
+                offset_weapon_y = py + tile_size // 2
+
+            elif self.direction == "UP":
+                # оружие не видно, силуэт игрока его закрывает
+                return
+
+            screen.blit(weapon_img, (offset_weapon_x, offset_weapon_y))
