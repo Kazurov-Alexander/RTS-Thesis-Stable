@@ -1,14 +1,12 @@
-import random
-import pygame as pg
+import pygame as pg  # библиотека pygame для работы с графикой
 
 # Кэш путей и изображений оружия
 WEAPON_PATHS = {
-    "axe":  "assets/images/weapons/axe.png",
-    "sword": "assets/images/weapons/sword.png",
-    "bow":  "assets/images/weapons/bow.png",
+    "axe": "assets/images/weapons/axe.png",    # путь к картинке топора
+    "sword": "assets/images/weapons/sword.png",# путь к картинке меча
+    "bow": "assets/images/weapons/bow.png",    # путь к картинке лука
 }
-_WEAPON_IMAGES_CACHE = {}
-
+_WEAPON_IMAGES_CACHE = {}  # кэш загруженных изображений оружия
 
 class Weapon:
     """
@@ -17,34 +15,35 @@ class Weapon:
     - kind: тип оружия (axe, sword, bow)
     - picked: флаг, что предмет подобран и больше не рисуется на карте
     """
+
     def __init__(self, x: int, y: int, kind: str):
-        self.x = x
-        self.y = y
-        self.kind = kind
-        self.picked = False
-        self.image = self._load_image(kind)
+        self.x = x              # координата X на карте
+        self.y = y              # координата Y на карте
+        self.kind = kind        # тип оружия
+        self.picked = False     # флаг: подобрано ли оружие
+        self.image = self._load_image(kind)  # загружаем картинку оружия
 
     def _load_image(self, kind: str) -> pg.Surface:
         """Ленивая загрузка и кэширование PNG-иконки оружия"""
-        if kind in _WEAPON_IMAGES_CACHE:
+        if kind in _WEAPON_IMAGES_CACHE:  # если картинка уже загружена
             return _WEAPON_IMAGES_CACHE[kind]
 
-        path = WEAPON_PATHS.get(kind)
+        path = WEAPON_PATHS.get(kind)  # получаем путь к картинке по типу
         if path:
             try:
-                img = pg.image.load(path).convert_alpha()
-                _WEAPON_IMAGES_CACHE[kind] = img
+                img = pg.image.load(path).convert_alpha()  # загружаем картинку
+                _WEAPON_IMAGES_CACHE[kind] = img           # сохраняем в кэш
                 return img
             except Exception:
                 # fallback: простая заливка, если файла нет
-                fallback = pg.Surface((40, 40), pg.SRCALPHA)
-                pg.draw.rect(fallback, (200, 200, 0), fallback.get_rect())
+                fallback = pg.Surface((40, 40), pg.SRCALPHA)  # создаём пустую поверхность
+                pg.draw.rect(fallback, (200, 200, 0), fallback.get_rect())  # рисуем жёлтый квадрат
                 _WEAPON_IMAGES_CACHE[kind] = fallback
                 return fallback
 
         # fallback если тип неизвестен
-        unknown = pg.Surface((40, 40), pg.SRCALPHA)
-        pg.draw.rect(unknown, (180, 180, 180), unknown.get_rect())
+        unknown = pg.Surface((40, 40), pg.SRCALPHA)  # создаём пустую поверхность
+        pg.draw.rect(unknown, (180, 180, 180), unknown.get_rect())  # рисуем серый квадрат
         _WEAPON_IMAGES_CACHE[kind] = unknown
         return unknown
 
@@ -55,19 +54,18 @@ class Weapon:
         - equipped=False → обычный размер (как на карте)
         """
         if equipped:
-            size = (tile_size // 3, tile_size // 3)
+            size = (tile_size // 3, tile_size // 3)  # уменьшенный размер
         else:
-            size = (tile_size, tile_size)
-        return pg.transform.scale(self.image, size)
+            size = (tile_size, tile_size)            # обычный размер
+        return pg.transform.scale(self.image, size)  # масштабируем картинку
 
     def draw(self, screen: pg.Surface, tile_size: int, offset_x: int, offset_y: int):
         """Отрисовка оружия на карте, если оно не подобрано"""
-        if self.picked:
+        if self.picked:  # если оружие подобрано — не рисуем
             return
-        px = self.x * tile_size + offset_x
-        py = self.y * tile_size + offset_y
-        screen.blit(self.get_scaled_image(tile_size, equipped=False), (int(px), int(py)))
-
+        px = self.x * tile_size + offset_x  # перевод координаты X в пиксели
+        py = self.y * tile_size + offset_y  # перевод координаты Y в пиксели
+        screen.blit(self.get_scaled_image(tile_size, equipped=False), (int(px), int(py)))  # рисуем оружие
 
 def _is_occupied(x: int, y: int, obstacles) -> bool:
     """
@@ -77,39 +75,10 @@ def _is_occupied(x: int, y: int, obstacles) -> bool:
     - объекты с набором cells (многоклеточные регионы)
     """
     for o in obstacles:
-        if hasattr(o, "x") and hasattr(o, "y"):
-            if o.x == x and o.y == y:
+        if hasattr(o, "x") and hasattr(o, "y"):  # если объект имеет координаты
+            if o.x == x and o.y == y:            # совпадают с проверяемыми
                 return True
-        elif hasattr(o, "cells"):
-            if (x, y) in o.cells:
+        elif hasattr(o, "cells"):                # если объект состоит из множества клеток
+            if (x, y) in o.cells:                # проверяем наличие клетки
                 return True
-    return False
-
-
-def generate_weapons(box_map, obstacles):
-    """
-    Генерирует ровно по одному: axe, sword, bow в случайных свободных клетках.
-    Возвращает список из трёх Weapon.
-    """
-    weapons = []
-    kinds = ["axe", "sword", "bow"]
-
-    for kind in kinds:
-        attempts = 0
-        while True:
-            attempts += 1
-            if attempts > 300:  # защита от бесконечного цикла
-                break
-
-            x = random.randint(-box_map.radius, box_map.radius)
-            y = random.randint(-box_map.radius, box_map.radius)
-
-            if not box_map.is_inside(x, y):
-                continue
-            if _is_occupied(x, y, obstacles):
-                continue
-
-            weapons.append(Weapon(x, y, kind))
-            break
-
-    return weapons
+    return False  # клетка свободна

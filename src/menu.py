@@ -1,20 +1,23 @@
-import pygame as pg
+import pygame as pg  # библиотека pygame для графики
+
 import settings  # модуль с константами, где есть GAME_VERSION и CURRENT_* параметры
 
 def render_button(screen, text, center_x, center_y, mouse_pos):
+    # создаём шрифт для кнопки
     font = pg.font.Font(settings.FONT_PATH, settings.FONT_SIZE_OPTION)
-    temp_surface = font.render(text, True, (0, 0, 0))
-    temp_rect = temp_surface.get_rect(center=(center_x, center_y))
+    temp_surface = font.render(text, True, (0, 0, 0))  # временный рендер текста
+    temp_rect = temp_surface.get_rect(center=(center_x, center_y))  # прямоугольник текста
 
+    # проверка наведения курсора
     is_hovered = temp_rect.collidepoint(mouse_pos)
-    font.set_bold(is_hovered)
-    color = (255, 255, 255) if is_hovered else (200, 200, 200)
+    font.set_bold(is_hovered)  # делаем текст жирным при наведении
+    color = (255, 255, 255) if is_hovered else (200, 200, 200)  # цвет текста
 
-    text_surface = font.render(text, True, color)
-    text_rect = text_surface.get_rect(center=(center_x, center_y))
-    screen.blit(text_surface, text_rect)
+    text_surface = font.render(text, True, color)  # финальный рендер текста
+    text_rect = text_surface.get_rect(center=(center_x, center_y))  # прямоугольник текста
+    screen.blit(text_surface, text_rect)  # рисуем текст на экране
 
-    return text, text_rect
+    return text, text_rect  # возвращаем текст и его прямоугольник
 
 def draw_volume_slider(screen, mouse_pos, current_volume):
     # Параметры слайдера (в виртуальных координатах)
@@ -23,28 +26,30 @@ def draw_volume_slider(screen, mouse_pos, current_volume):
     slider_width = 300
     slider_height = 10
 
-    # Прямоугольник трека
+    # Прямоугольник трека (фон слайдера)
     track_rect = pg.Rect(slider_x, slider_y, slider_width, slider_height)
     pg.draw.rect(screen, (180, 180, 180), track_rect)
 
-    # Позиция ползунка
+    # Позиция ползунка (knob)
     knob_x = slider_x + int(current_volume * slider_width)
     knob_y = slider_y + slider_height // 2
 
-    knob_rect = pg.Rect(knob_x - 8, knob_y - 8, 16, 16)
-    pg.draw.rect(screen, (255, 255, 255), knob_rect)
+    knob_rect = pg.Rect(knob_x - 8, knob_y - 8, 16, 16)  # прямоугольник ползунка
+    pg.draw.rect(screen, (255, 255, 255), knob_rect)     # рисуем ползунок
 
-    return knob_rect, track_rect
+    return knob_rect, track_rect  # возвращаем прямоугольники ползунка и трека
 
 def draw_menu(screen, mode="main", submenu=None, current_volume=None):
     try:
+        # загружаем фон меню
         background = pg.image.load("assets/images/ui/background_menu.png")
         background = pg.transform.scale(background, (settings.CURRENT_WIDTH, settings.CURRENT_HEIGHT))
         screen.blit(background, (0, 0))
     except:
+        # если нет картинки — заливаем фон цветом
         screen.fill(settings.BACKGROUND_COLOR)
 
-    font_title = pg.font.Font(settings.FONT_PATH, settings.FONT_SIZE_TITLE)
+    font_title = pg.font.Font(settings.FONT_PATH, settings.FONT_SIZE_TITLE)  # шрифт для заголовков
 
     # --- масштабируем мышь в виртуальные координаты ---
     screen_w, screen_h = pg.display.get_surface().get_size()
@@ -53,27 +58,28 @@ def draw_menu(screen, mode="main", submenu=None, current_volume=None):
     mouse_pos = (int(pg.mouse.get_pos()[0] * scale_x),
                  int(pg.mouse.get_pos()[1] * scale_y))
 
-    option_rects = []
+    option_rects = []  # список опций меню
 
-    if mode == "main":
+    if mode == "main":  # главное меню
         title_surface = font_title.render("RTS Thesis Project", True, (255, 255, 255))
         title_rect = title_surface.get_rect(center=(settings.CURRENT_WIDTH // 2, 100))
         screen.blit(title_surface, title_rect)
 
+        # рисуем все пункты главного меню
         for i, option in enumerate(settings.MENU_OPTIONS):
             item = render_button(screen, option, settings.CURRENT_WIDTH // 2, 200 + i * 60, mouse_pos)
             option_rects.append(item)
 
-    elif mode == "settings":
+    elif mode == "settings":  # меню настроек
         title_surface = font_title.render("Настройки", True, (255, 255, 255))
         title_rect = title_surface.get_rect(center=(settings.CURRENT_WIDTH // 2, 60))
         screen.blit(title_surface, title_rect)
 
-        if submenu is None:
+        if submenu is None:  # если подменю не выбрано
             for i, tab in enumerate(settings.DISPLAY_SETTINGS_MENU):
                 item = render_button(screen, tab, settings.CURRENT_WIDTH // 2, 140 + i * 50, mouse_pos)
                 option_rects.append(item)
-        else:
+        else:  # если выбрано подменю
             selected_tab_text = get_tab_text(submenu)
             if selected_tab_text:
                 font_tab = pg.font.Font(settings.FONT_PATH, settings.FONT_SIZE_OPTION)
@@ -81,25 +87,25 @@ def draw_menu(screen, mode="main", submenu=None, current_volume=None):
                 tab_rect = tab_surface.get_rect(center=(settings.CURRENT_WIDTH // 2, 120))
                 screen.blit(tab_surface, tab_rect)
 
-            if submenu == "resolution":
+            if submenu == "resolution":  # список разрешений
                 for i, (w, h) in enumerate(settings.RESOLUTIONS):
                     text = f"{w} x {h}"
                     item = render_button(screen, text, settings.CURRENT_WIDTH // 2, 220 + i * 30, mouse_pos)
                     option_rects.append(item)
 
-            elif submenu == "display_mode":
+            elif submenu == "display_mode":  # список режимов окна
                 for i, mode_name in enumerate(settings.DISPLAY_MODES):
                     item = render_button(screen, mode_name, settings.CURRENT_WIDTH // 2, 220 + i * 40, mouse_pos)
                     option_rects.append(item)
 
-            elif submenu == "volume":
+            elif submenu == "volume":  # регулировка громкости
                 if current_volume is None:
                     current_volume = settings.CURRENT_VOLUME
                 knob_rect, track_rect = draw_volume_slider(screen, mouse_pos, current_volume)
                 option_rects.append(("volume_slider", knob_rect))
                 option_rects.append(("volume_track", track_rect))
 
-        # "Назад"
+        # кнопка "Назад"
         item = render_button(screen, "Назад", settings.CURRENT_WIDTH // 2, settings.CURRENT_HEIGHT - 200, mouse_pos)
         option_rects.append(item)
 
@@ -109,13 +115,13 @@ def draw_menu(screen, mode="main", submenu=None, current_volume=None):
     version_rect = version_surface.get_rect(bottomright=(settings.CURRENT_WIDTH - 10, settings.CURRENT_HEIGHT - 10))
     screen.blit(version_surface, version_rect)
 
-    return option_rects
+    return option_rects  # возвращаем список опций меню
 
 def get_tab_text(submenu):
+    # словарь соответствия подменю и текста вкладки
     mapping = {
         "resolution": settings.DISPLAY_SETTINGS_MENU[0],
         "display_mode": settings.DISPLAY_SETTINGS_MENU[1],
         "volume": settings.DISPLAY_SETTINGS_MENU[2],
     }
-    return mapping.get(submenu)
-
+    return mapping.get(submenu)  # возвращаем текст вкладки по ключу
